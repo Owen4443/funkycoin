@@ -2,30 +2,36 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>FunkyCoin</title>
-  <link rel="stylesheet" href="styles.css" />
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #121212;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    h1 {
+      color: #00ffcc;
+    }
+    button {
+      padding: 10px 20px;
+      background: #00ffcc;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
-  <div class="app">
-    <header>
-      <h1>FunkyCoin</h1>
-      <div id="balance">Balance: 0 🪙</div>
-    </header>
-
-    <main id="content">
-      <!-- Dynamic content goes here -->
-    </main>
-
-    <nav>
-      <button onclick="switchTab('profile')">Profile</button>
-      <button onclick="switchTab('friends')">Friends</button>
-      <button onclick="switchTab('earn')">Earn</button>
-      <button onclick="switchTab('boost')">Boost</button>
-    </nav>
-  </div>
-
-  <script src="app.js"></script>
+  <h1>🚀 Welcome to FunkyCoin</h1>
+  <p>This is your Telegram Web App interface.</p>
+  <button onclick="alert('This will soon do something funky!')">Get Funky</button>
 </body>
 </html>
