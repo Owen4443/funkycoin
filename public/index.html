@@ -6,32 +6,100 @@
   <title>FunkyCoin</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background-color: #121212;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #1f1f2e;
       color: #fff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
       margin: 0;
+      padding: 20px;
     }
     h1 {
-      color: #00ffcc;
+      font-size: 1.5rem;
     }
-    button {
-      padding: 10px 20px;
-      background: #00ffcc;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
+    #menu {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-around;
+      background-color: #2a2a40;
+      padding: 10px 0;
+      border-top: 1px solid #444;
+    }
+    .menu-item {
+      flex: 1;
+      text-align: center;
+      font-weight: bold;
+      color: #ccc;
       cursor: pointer;
+    }
+    .active {
+      color: #00ff99;
+    }
+    .section {
+      display: none;
+    }
+    .section.active {
+      display: block;
+    }
+    .button {
+      margin-top: 20px;
+      padding: 12px;
+      background-color: #00ff99;
+      border: none;
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+      border-radius: 6px;
     }
   </style>
 </head>
 <body>
-  <h1>🚀 Welcome to FunkyCoin</h1>
-  <p>This is your Telegram Web App interface.</p>
-  <button onclick="alert('This will soon do something funky!')">Get Funky</button>
+  <h1 id="greeting">Welcome to FunkyCoin</h1>
+
+  <div id="profile" class="section active">
+    <p><strong>Name:</strong> <span id="user-name"></span></p>
+    <p><strong>Balance:</strong> <span id="balance">0</span> 🔥</p>
+  </div>
+
+  <div id="friends" class="section">
+    <p>No referrals yet.</p>
+  </div>
+
+  <div id="earn" class="section">
+    <p>No tasks available yet. Stay tuned!</p>
+  </div>
+
+  <div id="boost" class="section">
+    <p>Claim 1,000 FunkyCoins per hour.</p>
+    <button class="button">Claim Now</button>
+  </div>
+
+  <div id="menu">
+    <div class="menu-item active" onclick="showSection('profile')">Profile</div>
+    <div class="menu-item" onclick="showSection('friends')">Friends</div>
+    <div class="menu-item" onclick="showSection('earn')">Earn</div>
+    <div class="menu-item" onclick="showSection('boost')">Boost</div>
+  </div>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    const tg = window.Telegram.WebApp;
+    const user = tg.initDataUnsafe?.user;
+
+    if (user) {
+      document.getElementById("user-name").textContent = user.first_name;
+    }
+
+    tg.ready();
+
+    function showSection(id) {
+      document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+
+      document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
+      document.querySelector(`[onclick="showSection('${id}')"]`).classList.add('active');
+    }
+  </script>
 </body>
 </html>
