@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FunkyCoin</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>FunkyCoin</h1>
+      <div id="balance">Balance: 0 🪙</div>
+    </header>
+
+    <main id="content">
+      <!-- Dynamic content goes here -->
+    </main>
+
+    <nav>
+      <button onclick="switchTab('profile')">Profile</button>
+      <button onclick="switchTab('friends')">Friends</button>
+      <button onclick="switchTab('earn')">Earn</button>
+      <button onclick="switchTab('boost')">Boost</button>
+    </nav>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
