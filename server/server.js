@@ -24,7 +24,7 @@ app.use(limiter);
 
 // ✅ CORS (allow only your Telegram WebApp domain)
 app.use(cors({
-  origin: 'https://your-telegram-webapp-url', // Replace with actual deployed Telegram WebApp URL
+  origin: 'https://funkycoin.onrender.com', // Replace with actual deployed Telegram WebApp URL
 }));
 
 app.use(express.json());
