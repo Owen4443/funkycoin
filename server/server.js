@@ -24,7 +24,7 @@ app.use(limiter);
 
 // ✅ CORS (allow only your Telegram WebApp domain)
 app.use(cors({
-  origin: 'https://funkycoin.onrender.com', // Replace with actual deployed Telegram WebApp URL
+  origin: 'https://funkycoin.onrender.com', // Replace if needed
 }));
 
 app.use(express.json());
@@ -34,7 +34,7 @@ const userRoutes = require('./routes/userRoutes');
 app.use('/api/users', userRoutes);
 
 // ✅ Test Route
-app.get('/', (req, res) => {
+app.get('/api', (req, res) => {
   res.send('🚀 FunkyCoin Backend is running');
 });
 
@@ -44,6 +44,13 @@ mongoose.connect(process.env.MONGO_URI)
 .catch(err => {
   console.error('❌ MongoDB connection error:', err.message);
   process.exit(1);
+});
+
+// ✅ Serve React Frontend in Production
+app.use(express.static(path.join(__dirname, '../client/build')));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/build/index.html'));
 });
 
 // ✅ Start Server
