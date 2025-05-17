@@ -1,4 +1,4 @@
-// Load environment variables from the root .env using absolute path
+// ✅ Load environment variables from root .env using absolute path
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
@@ -17,14 +17,14 @@ app.use(helmet()); // Security headers
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per window
-  standardHeaders: true, 
+  standardHeaders: true,
   legacyHeaders: false,
 });
 app.use(limiter);
 
 // ✅ CORS (allow only your Telegram WebApp domain)
 app.use(cors({
-  origin: 'https://funkycoin.onrender.com', // Replace if needed
+  origin: 'https://funkycoin.onrender.com', // Update if needed
 }));
 
 app.use(express.json());
@@ -33,23 +33,24 @@ app.use(express.json());
 const userRoutes = require('./routes/userRoutes');
 app.use('/api/users', userRoutes);
 
-// ✅ Test Route
+// ✅ Test Route — must be BEFORE frontend
 app.get('/api', (req, res) => {
   res.send('🚀 FunkyCoin Backend is running');
 });
 
 // ✅ MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
-.then(() => console.log('✅ Connected to MongoDB'))
-.catch(err => {
-  console.error('❌ MongoDB connection error:', err.message);
-  process.exit(1);
-});
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch(err => {
+    console.error('❌ MongoDB connection error:', err.message);
+    process.exit(1);
+  });
 
-// ✅ Serve React Frontend in Production
+// ✅ Serve React Frontend in Production — must be AFTER API routes
 app.use(express.static(path.join(__dirname, '../client/build')));
 
-app.get('*', (req, res) => {
+// ✅ Safe catch-all for frontend routing (avoids path-to-regexp crash)
+app.get(/^\/(?!api).*/, (req, res) => {
   res.sendFile(path.join(__dirname, '../client/build/index.html'));
 });
 

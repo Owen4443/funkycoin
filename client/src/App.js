@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import './style.css';
 
-const API_URL = 'https://funkycoin.onrender.com';
 const SECONDS_IN_HOUR = 3600;
 
 const App = () => {
@@ -26,11 +25,12 @@ const App = () => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/users/start`, {
+        const res = await fetch(`/api/users/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ telegramId, username }),
         });
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         const user = await res.json();
 
         setBalance(user.balance);
@@ -59,13 +59,18 @@ const App = () => {
 
         for (let i = 0; i < refList.length; i++) {
           const r = refList[i];
-          const res = await fetch(`${API_URL}/api/users/${r.telegramId}`);
-          const data = await res.json();
-          setReferrals(prev => {
-            const updated = [...prev];
-            updated[i].coins = data.balance;
-            return updated;
-          });
+          try {
+            const res = await fetch(`/api/users/${r.telegramId}`);
+            if (!res.ok) continue;
+            const data = await res.json();
+            setReferrals(prev => {
+              const updated = [...prev];
+              updated[i].coins = data.balance;
+              return updated;
+            });
+          } catch {
+            // ignore individual referral fetch errors
+          }
         }
       } catch (err) {
         console.error('Fetch failed:', err);
@@ -75,7 +80,7 @@ const App = () => {
     fetchUser();
   }, [telegramId, username]);
 
-  // ⏳ Countdown
+  // ⏳ Countdown timer
   useEffect(() => {
     const interval = setInterval(() => {
       setSecondsLeft(prev => (prev > 0 ? prev - 1 : 0));
@@ -92,11 +97,12 @@ const App = () => {
 
   const handleClaim = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/users/claim`, {
+      const res = await fetch(`/api/users/claim`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ telegramId }),
       });
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       if (data.success) {
         setBalance(data.balance);
@@ -112,11 +118,12 @@ const App = () => {
 
   const handleBuyBoost = async type => {
     try {
-      const res = await fetch(`${API_URL}/api/users/buy-boost`, {
+      const res = await fetch(`/api/users/buy-boost`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ telegramId, type }),
       });
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
       if (data.success) {
         setBalance(data.balance);
@@ -170,10 +177,14 @@ const App = () => {
     <div className="content">
       <h2>👥 Referrals</h2>
       <p>Your Referral Link:</p>
-      <p><code>https://t.me/funkycoin_bot?start={telegramId}</code></p>
+      <p>
+        <code>https://t.me/funkycoin_bot?start={telegramId}</code>
+      </p>
       <ul>
         {referrals.map((r, i) => (
-          <li key={i}>@{r.username} - {r.coins.toLocaleString()} coins</li>
+          <li key={i}>
+            @{r.username} - {r.coins.toLocaleString()} coins
+          </li>
         ))}
       </ul>
     </div>

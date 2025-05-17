@@ -18,7 +18,7 @@ router.post('/start', async (req, res) => {
         if (referrer) {
           user.referredBy = referredBy;
           referrer.referrals.push({ telegramId, username });
-          referrer.balance += 5000; // reward for referral
+          referrer.balance += 5000;
           await referrer.save();
         }
       }
@@ -55,40 +55,43 @@ router.post('/claim', async (req, res) => {
     const isAutoClaim = user.autoClaim;
     const isBoosted = user.claimBoost;
 
-    const hoursSinceLastClaim = user.lastClaimTime
-      ? Math.floor((now - new Date(user.lastClaimTime)) / (1000 * 60 * 60))
-      : Infinity;
-
-    const cooldownHours = isBoosted ? 6 : 3;
+    const cooldownHours = isBoosted || isAutoClaim ? 6 : 3;
     const earningRate = isBoosted || isAutoClaim ? 3000 : 1000;
 
-    if (hoursSinceLastClaim < cooldownHours && !isAutoClaim) {
+    const lastClaim = user.lastClaimTime || new Date(0);
+    const hoursSinceLastClaim = Math.floor((now - lastClaim) / (1000 * 60 * 60));
+
+    if (!isAutoClaim && hoursSinceLastClaim < cooldownHours) {
       return res.status(400).json({ error: 'Claim not available yet' });
     }
 
-    // Calculate claim
-    const claimAmount = earningRate * Math.min(hoursSinceLastClaim, cooldownHours);
-    user.balance += claimAmount;
-    user.lastClaimTime = now;
-
-    // AutoClaim 24h limit
+    // If AutoClaim is active, handle 24h limit
     if (isAutoClaim) {
-      const sinceAutoStart = Math.floor((now - new Date(user.autoClaimStart)) / (1000 * 60 * 60));
-      if (sinceAutoStart >= 24) {
-        user.autoClaimStart = null;
+      if (!user.autoClaimStart) {
+        user.autoClaimStart = now;
       } else {
-        user.autoClaimStart = user.autoClaimStart || now;
+        const hoursSinceAutoStart = Math.floor((now - user.autoClaimStart) / (1000 * 60 * 60));
+        if (hoursSinceAutoStart >= 24) {
+          user.autoClaimStart = null; // AutoClaim ends after 24h
+          return res.status(400).json({ error: 'AutoClaim expired. Claim manually to restart.' });
+        }
       }
     }
 
+    const claimableHours = Math.min(hoursSinceLastClaim, cooldownHours);
+    const claimAmount = earningRate * claimableHours;
+
+    user.balance += claimAmount;
+    user.lastClaimTime = now;
+
     await user.save();
-    res.json({ success: true, balance: user.balance });
+    res.json({ success: true, balance: user.balance, claimAmount });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Buy boost - one time only
+// Buy boost
 router.post('/buy-boost', async (req, res) => {
   const { telegramId, type } = req.body;
 
@@ -98,7 +101,7 @@ router.post('/buy-boost', async (req, res) => {
 
     if (type === '6h') {
       if (user.claimBoost) {
-        return res.json({ success: false, message: '6h boost already purchased', balance: user.balance });
+        return res.json({ success: false, message: '6h Boost already purchased', balance: user.balance });
       }
       if (user.balance < 500000) {
         return res.status(400).json({ error: 'Insufficient balance' });
