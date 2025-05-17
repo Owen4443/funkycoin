@@ -1,4 +1,11 @@
 {
+  "name": "funkycoin",
+  "version": "1.0.0",
+  "main": "server/server.js",
+  "scripts": {
+    "build": "cd client && npm install && npm run build",
+    "start": "node server/server.js"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
