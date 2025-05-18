@@ -1,3 +1,4 @@
+/* Base Styles */
 body {
   margin: 0;
   padding: 0;
@@ -12,18 +13,19 @@ body {
   box-sizing: border-box;
   min-height: 100vh;
   background: linear-gradient(180deg, #ffffff, #e6f7ff);
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
 }
 
+/* Header (Back/Close buttons) */
 .header {
   display: flex;
   justify-content: flex-start;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
-.close-button,
-.back-button {
+.back-button,
+.close-button {
   padding: 6px 12px;
   font-size: 14px;
   background: #ff6666;
@@ -33,21 +35,23 @@ body {
   cursor: pointer;
 }
 
+/* Card Content Box */
 .content {
   background: white;
   padding: 16px;
   border-radius: 12px;
   box-sizing: border-box;
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.05);
   margin-bottom: 20px;
 }
 
+/* Menu Row */
 .menu {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 20px;
-  margin-bottom: 20px;
+  margin: 20px 0;
+  flex-wrap: wrap;
 }
 
 .menu button {
@@ -72,35 +76,7 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.boost-option {
-  margin-bottom: 20px;
-  padding: 12px;
-  background: #f5ffe6;
-  border-left: 4px solid #66cc33;
-  border-radius: 10px;
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.05);
-}
-
-.boost-option h3 {
-  margin: 0 0 6px 0;
-  color: #339900;
-}
-
-h1, h2, h3 {
-  margin-top: 0;
-  color: #333;
-}
-
-p, li {
-  color: #444;
-  font-size: 15px;
-  line-height: 1.5;
-}
-
-ul {
-  padding-left: 20px;
-}
-
+/* Claim Button */
 .claim-button {
   display: block;
   width: 100%;
@@ -120,10 +96,43 @@ ul {
   background-color: #218838;
 }
 
+/* Boost Info Cards */
+.boost-option {
+  margin-bottom: 20px;
+  padding: 12px;
+  background: #f5ffe6;
+  border-left: 4px solid #66cc33;
+  border-radius: 10px;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.05);
+}
+
+.boost-option h3 {
+  margin: 0 0 6px 0;
+  color: #339900;
+}
+
+/* Typography */
+h1, h2, h3 {
+  margin-top: 0;
+  color: #333;
+}
+
+p, li {
+  color: #444;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+ul {
+  padding-left: 20px;
+}
+
+/* Timer Display */
 .timer {
   font-size: 18px;
   font-weight: bold;
   color: #ff6600;
   margin-top: 10px;
   text-align: center;
+  letter-spacing: 1px;
 }

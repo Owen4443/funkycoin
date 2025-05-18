@@ -1,10 +1,38 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const crypto = require('crypto');
 
-// Create or fetch user
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+
+// 🔐 Verify initData
+function isValidTelegramInitData(initData) {
+  const parsed = Object.fromEntries(new URLSearchParams(initData));
+  const hash = parsed.hash;
+  delete parsed.hash;
+
+  const sortedData = Object.keys(parsed)
+    .sort()
+    .map(key => `${key}=${parsed[key]}`)
+    .join('\n');
+
+  const secret = crypto.createHmac('sha256', 'WebAppData').update(BOT_TOKEN).digest();
+  const computedHash = crypto.createHmac('sha256', secret).update(sortedData).digest('hex');
+
+  return computedHash === hash;
+}
+
+// 📌 /start — Create or fetch user
 router.post('/start', async (req, res) => {
-  const { telegramId, username, referredBy } = req.body;
+  const { initData, referredBy } = req.body;
+
+  if (!isValidTelegramInitData(initData)) {
+    return res.status(403).json({ error: 'Invalid initData' });
+  }
+
+  const parsed = Object.fromEntries(new URLSearchParams(initData));
+  const telegramId = parsed.user?.id || parsed.id;
+  const username = parsed.user?.username || parsed.username || `id${telegramId}`;
 
   try {
     let user = await User.findOne({ telegramId });
@@ -32,7 +60,7 @@ router.post('/start', async (req, res) => {
   }
 });
 
-// Get user profile
+// ✅ GET /:telegramId — Fetch profile
 router.get('/:telegramId', async (req, res) => {
   try {
     const user = await User.findOne({ telegramId: req.params.telegramId });
@@ -43,7 +71,7 @@ router.get('/:telegramId', async (req, res) => {
   }
 });
 
-// Claim coins
+// ✅ POST /claim
 router.post('/claim', async (req, res) => {
   const { telegramId } = req.body;
   const now = new Date();
@@ -52,46 +80,47 @@ router.post('/claim', async (req, res) => {
     const user = await User.findOne({ telegramId });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const isAutoClaim = user.autoClaim;
+    const isAuto = user.autoClaim;
     const isBoosted = user.claimBoost;
-
-    const cooldownHours = isBoosted || isAutoClaim ? 6 : 3;
-    const earningRate = isBoosted || isAutoClaim ? 3000 : 1000;
-
+    const cooldown = isAuto || isBoosted ? 6 : 3;
+    const rate = isAuto || isBoosted ? 3000 : 1000;
     const lastClaim = user.lastClaimTime || new Date(0);
-    const hoursSinceLastClaim = Math.floor((now - lastClaim) / (1000 * 60 * 60));
+    const hoursSince = Math.floor((now - lastClaim) / (1000 * 60 * 60));
 
-    if (!isAutoClaim && hoursSinceLastClaim < cooldownHours) {
-      return res.status(400).json({ error: 'Claim not available yet' });
+    if (hoursSince < cooldown) {
+      return res.status(400).json({ error: `Claim not ready. Wait ${cooldown - hoursSince}h` });
     }
 
-    // If AutoClaim is active, handle 24h limit
-    if (isAutoClaim) {
+    if (isAuto) {
       if (!user.autoClaimStart) {
         user.autoClaimStart = now;
       } else {
-        const hoursSinceAutoStart = Math.floor((now - user.autoClaimStart) / (1000 * 60 * 60));
-        if (hoursSinceAutoStart >= 24) {
-          user.autoClaimStart = null; // AutoClaim ends after 24h
+        const autoElapsed = Math.floor((now - user.autoClaimStart) / (1000 * 60 * 60));
+        if (autoElapsed >= 24) {
+          user.autoClaimStart = null;
           return res.status(400).json({ error: 'AutoClaim expired. Claim manually to restart.' });
         }
       }
     }
 
-    const claimableHours = Math.min(hoursSinceLastClaim, cooldownHours);
-    const claimAmount = earningRate * claimableHours;
+    const earnedHours = Math.min(hoursSince, cooldown);
+    const earnedCoins = rate * earnedHours;
 
-    user.balance += claimAmount;
+    if (earnedCoins <= 0) {
+      return res.status(400).json({ error: 'Nothing to claim yet' });
+    }
+
+    user.balance += earnedCoins;
     user.lastClaimTime = now;
 
     await user.save();
-    res.json({ success: true, balance: user.balance, claimAmount });
+    res.json({ success: true, balance: user.balance, claimAmount: earnedCoins });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Buy boost
+// ✅ POST /buy-boost
 router.post('/buy-boost', async (req, res) => {
   const { telegramId, type } = req.body;
 
@@ -100,23 +129,15 @@ router.post('/buy-boost', async (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     if (type === '6h') {
-      if (user.claimBoost) {
-        return res.json({ success: false, message: '6h Boost already purchased', balance: user.balance });
-      }
-      if (user.balance < 500000) {
-        return res.status(400).json({ error: 'Insufficient balance' });
-      }
+      if (user.claimBoost) return res.json({ success: false, message: 'Already bought' });
+      if (user.balance < 500000) return res.status(400).json({ error: 'Not enough coins' });
       user.balance -= 500000;
       user.claimBoost = true;
     }
 
-    if (type === 'auto' || type === 'autoclaim') {
-      if (user.autoClaim) {
-        return res.json({ success: false, message: 'AutoClaim already purchased', balance: user.balance });
-      }
-      if (user.balance < 1000000) {
-        return res.status(400).json({ error: 'Insufficient balance' });
-      }
+    if (type === 'auto') {
+      if (user.autoClaim) return res.json({ success: false, message: 'Already bought' });
+      if (user.balance < 1000000) return res.status(400).json({ error: 'Not enough coins' });
       user.balance -= 1000000;
       user.autoClaim = true;
       user.autoClaimStart = new Date();

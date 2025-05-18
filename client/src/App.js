@@ -1,232 +1,193 @@
-import React, { useEffect, useState } from 'react';
-import './style.css';
-
-const SECONDS_IN_HOUR = 3600;
+import React, { useEffect, useState } from "react";
+import "./style.css";
 
 const App = () => {
-  const tg = window.Telegram?.WebApp;
-  const isTelegram = !!tg?.initDataUnsafe?.user;
+  const [telegramUser, setTelegramUser] = useState(null);
+  const [activeTab, setActiveTab] = useState("profile");
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [timer, setTimer] = useState(0);
+  const [claiming, setClaiming] = useState(false);
+  const [error, setError] = useState("");
 
-  const telegramId = isTelegram
-    ? tg.initDataUnsafe.user.id.toString()
-    : '5620731331'; // test user ID in MongoDB
-  const username = isTelegram
-    ? tg.initDataUnsafe.user.username || 'anon'
-    : 'funkydev';
-
-  const [page, setPage] = useState('home');
-  const [secondsLeft, setSecondsLeft] = useState(0);
-  const [balance, setBalance] = useState(0);
-  const [referrals, setReferrals] = useState([]);
-  const [boosts, setBoosts] = useState({ timerBoost: false, autoClaim: false });
-  const [claimCooldown, setClaimCooldown] = useState(3);
-
-  // 🔄 Load user data
+  // Fetch Telegram user data
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const res = await fetch(`/api/users/start`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ telegramId, username }),
-        });
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const user = await res.json();
+    const tg = window.Telegram?.WebApp;
+    if (tg?.initDataUnsafe?.user) {
+      const user = tg.initDataUnsafe.user;
+      setTelegramUser(user);
+      fetchUser(user);
+    } else {
+      setError("Telegram user not found. Please open via Telegram.");
+      setLoading(false);
+    }
+  }, []);
 
-        setBalance(user.balance);
-        setBoosts({
-          timerBoost: user.claimBoost,
-          autoClaim: user.autoClaim,
-        });
+  // Fetch user data from server
+  const fetchUser = async (user) => {
+    try {
+      const res = await fetch("/api/users/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          telegramId: user.id,
+          username: user.username || "",
+          firstName: user.first_name || "",
+        }),
+      });
+      const data = await res.json();
+      setUserData(data);
+      setTimer(data.nextClaim - Date.now());
+    } catch (err) {
+      setError("Failed to fetch user.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        const boostHours = user.claimBoost || user.autoClaim ? 6 : 3;
-        setClaimCooldown(boostHours);
-
-        if (user.lastClaimTime) {
-          const last = new Date(user.lastClaimTime);
-          const now = new Date();
-          const elapsed = Math.floor((now - last) / 1000);
-          const cooldown = boostHours * SECONDS_IN_HOUR;
-          setSecondsLeft(Math.max(cooldown - elapsed, 0));
-        }
-
-        const refList = user.referrals.map(r => ({
-          username: r.username,
-          coins: 0,
-          telegramId: r.telegramId,
-        }));
-        setReferrals(refList);
-
-        for (let i = 0; i < refList.length; i++) {
-          const r = refList[i];
-          try {
-            const res = await fetch(`/api/users/${r.telegramId}`);
-            if (!res.ok) continue;
-            const data = await res.json();
-            setReferrals(prev => {
-              const updated = [...prev];
-              updated[i].coins = data.balance;
-              return updated;
-            });
-          } catch {
-            // ignore individual referral fetch errors
-          }
-        }
-      } catch (err) {
-        console.error('Fetch failed:', err);
-      }
-    };
-
-    fetchUser();
-  }, [telegramId, username]);
-
-  // ⏳ Countdown timer
+  // Countdown logic
   useEffect(() => {
     const interval = setInterval(() => {
-      setSecondsLeft(prev => (prev > 0 ? prev - 1 : 0));
+      setTimer((prev) => (prev > 0 ? prev - 1000 : 0));
     }, 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const formatTime = secs => {
-    const h = String(Math.floor(secs / 3600)).padStart(2, '0');
-    const m = String(Math.floor((secs % 3600) / 60)).padStart(2, '0');
-    const s = String(secs % 60).padStart(2, '0');
-    return `${h}:${m}:${s}`;
+  const formatTime = (ms) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return `${h.toString().padStart(2, "0")}:${m
+      .toString()
+      .padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
+  // Claim coins
   const handleClaim = async () => {
+    if (!telegramUser || timer > 0 || claiming) return;
+    setClaiming(true);
     try {
-      const res = await fetch(`/api/users/claim`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telegramId }),
+      const res = await fetch("/api/users/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telegramId: telegramUser.id }),
       });
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const data = await res.json();
-      if (data.success) {
-        setBalance(data.balance);
-        setSecondsLeft(claimCooldown * SECONDS_IN_HOUR);
-        alert('✅ Claimed!');
-      } else {
-        alert(data.error || '❌ Cannot claim yet.');
-      }
+      setUserData(data);
+      setTimer(data.nextClaim - Date.now());
     } catch (err) {
-      alert('❌ Claim failed');
+      setError("Claim failed.");
+    }
+    setClaiming(false);
+  };
+
+  // Buy boost
+  const handleBoost = async (type) => {
+    try {
+      const res = await fetch("/api/users/buy-boost", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telegramId: telegramUser.id, type }),
+      });
+      const data = await res.json();
+      setUserData(data);
+    } catch (err) {
+      setError("Boost purchase failed.");
     }
   };
 
-  const handleBuyBoost = async type => {
-    try {
-      const res = await fetch(`/api/users/buy-boost`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telegramId, type }),
-      });
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      const data = await res.json();
-      if (data.success) {
-        setBalance(data.balance);
-        if (type === '6h') setBoosts(prev => ({ ...prev, timerBoost: true }));
-        if (type === 'auto') setBoosts(prev => ({ ...prev, autoClaim: true }));
-        alert(`✅ Boost Activated: ${type}`);
-      } else {
-        alert(data.message || '❌ Purchase failed');
-      }
-    } catch (err) {
-      alert('❌ Purchase error');
-    }
-  };
+  if (loading) return <div className="App">Loading...</div>;
+  if (error) return <div className="App">{error}</div>;
+  if (!userData) return <div className="App">User not loaded.</div>;
 
-  const renderHeader = () => (
-    <div className="header">
-      {page !== 'home' && (
-        <button className="back-button" onClick={() => setPage('home')}>
-          ⬅ Back
-        </button>
-      )}
-    </div>
-  );
-
-  const renderHome = () => (
-    <div className="content">
-      <h1>FunkyCoin</h1>
-      <p className="balance">Balance: {balance.toLocaleString()} coins</p>
-      <p className="timer">Next Claim In: {formatTime(secondsLeft)}</p>
-      <button onClick={handleClaim} disabled={secondsLeft > 0 && !boosts.autoClaim}>
-        {secondsLeft > 0 && !boosts.autoClaim ? '⏳ Wait...' : '💰 Claim'}
-      </button>
-      <div className="menu">
-        <button onClick={() => setPage('profile')}>Profile</button>
-        <button onClick={() => setPage('friends')}>Friends</button>
-        <button onClick={() => setPage('earn')}>Earn</button>
-        <button onClick={() => setPage('boost')}>Boost</button>
-      </div>
-    </div>
-  );
-
-  const renderProfile = () => (
-    <div className="content">
-      <h2>👤 Profile</h2>
-      <p>Username: @{username}</p>
-      <p>Total Coin Balance: {balance.toLocaleString()} coins</p>
-    </div>
-  );
-
-  const renderFriends = () => (
-    <div className="content">
-      <h2>👥 Referrals</h2>
-      <p>Your Referral Link:</p>
-      <p>
-        <code>https://t.me/funkycoin_bot?start={telegramId}</code>
-      </p>
-      <ul>
-        {referrals.map((r, i) => (
-          <li key={i}>
-            @{r.username} - {r.coins.toLocaleString()} coins
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-
-  const renderEarn = () => (
-    <div className="content">
-      <h2>🎯 Earn</h2>
-      <p>No task available yet. Stay tuned.</p>
-    </div>
-  );
-
-  const renderBoost = () => (
-    <div className="content">
-      <h2>🚀 Boosts</h2>
-      <div className="boost-option">
-        <h3>6-Hour Timer Boost</h3>
-        <p>Cost: 500,000 coins</p>
-        <p>+3,000/hour, Manual Claim</p>
-        <button disabled={boosts.timerBoost} onClick={() => handleBuyBoost('6h')}>
-          {boosts.timerBoost ? '✅ Purchased' : 'Buy'}
-        </button>
-      </div>
-      <div className="boost-option">
-        <h3>AutoClaim Bot</h3>
-        <p>Cost: 1,000,000 coins</p>
-        <p>Auto-claims for 24h</p>
-        <button disabled={boosts.autoClaim} onClick={() => handleBuyBoost('auto')}>
-          {boosts.autoClaim ? '✅ Purchased' : 'Buy'}
-        </button>
-      </div>
-    </div>
-  );
+  const referralLink = `https://t.me/funkycoin_bot?start=${telegramUser.id}`;
 
   return (
     <div className="App">
-      {renderHeader()}
-      {page === 'home' && renderHome()}
-      {page === 'profile' && renderProfile()}
-      {page === 'friends' && renderFriends()}
-      {page === 'earn' && renderEarn()}
-      {page === 'boost' && renderBoost()}
+      <div className="header">
+        <button className="close-button" onClick={() => window.Telegram?.WebApp?.close()}>
+          Close
+        </button>
+      </div>
+
+      <div className="menu">
+        <button onClick={() => setActiveTab("profile")}>Profile</button>
+        <button onClick={() => setActiveTab("friends")}>Friends</button>
+        <button onClick={() => setActiveTab("earn")}>Earn</button>
+        <button onClick={() => setActiveTab("boost")}>Boost</button>
+      </div>
+
+      {activeTab === "profile" && (
+        <div className="content">
+          <h2>Welcome, {telegramUser.first_name}</h2>
+          <p><strong>Total Coins:</strong> {userData.coins.toLocaleString()}</p>
+          <div className="timer">
+            {timer > 0 ? `Next Claim: ${formatTime(timer)}` : "You can claim now!"}
+          </div>
+          <button
+            className="claim-button"
+            onClick={handleClaim}
+            disabled={timer > 0 || claiming}
+          >
+            {claiming ? "Claiming..." : "CLAIM"}
+          </button>
+        </div>
+      )}
+
+      {activeTab === "friends" && (
+        <div className="content">
+          <h3>Your Referral Link:</h3>
+          <p>{referralLink}</p>
+          <h3>Referrals:</h3>
+          {userData.referrals.length === 0 ? (
+            <p>No referrals yet.</p>
+          ) : (
+            <ul>
+              {userData.referrals.map((ref, i) => (
+                <li key={i}>
+                  @{ref.username || "unknown"} — {ref.coins.toLocaleString()} coins
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {activeTab === "earn" && (
+        <div className="content">
+          <h3>Earn</h3>
+          <p>No task available yet. Stay tuned.</p>
+        </div>
+      )}
+
+      {activeTab === "boost" && (
+        <div className="content">
+          <div className="boost-option">
+            <h3>6-Hour Timer Boost</h3>
+            <p>Cost: 500,000 coins — Manual claim every 6 hours. Earnings: 3,000/hour.</p>
+            <button
+              className="claim-button"
+              disabled={userData.coins < 500000}
+              onClick={() => handleBoost("timer")}
+            >
+              Buy Boost
+            </button>
+          </div>
+
+          <div className="boost-option">
+            <h3>AutoClaim Bot</h3>
+            <p>Cost: 1,000,000 coins — Auto-claims every 6h for 24h.</p>
+            <button
+              className="claim-button"
+              disabled={userData.coins < 1000000}
+              onClick={() => handleBoost("auto")}
+            >
+              Buy AutoClaim
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
