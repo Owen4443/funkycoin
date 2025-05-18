@@ -10,18 +10,29 @@ const App = () => {
   const [claiming, setClaiming] = useState(false);
   const [error, setError] = useState("");
 
-  // Fetch Telegram user data
-  useEffect(() => {
-    const tg = window.Telegram?.WebApp;
-    if (tg?.initDataUnsafe?.user) {
-      const user = tg.initDataUnsafe.user;
-      setTelegramUser(user);
-      fetchUser(user);
-    } else {
-      setError("Telegram user not found. Please open via Telegram.");
-      setLoading(false);
-    }
-  }, []);
+  // Fetch Telegram user data with tg.ready() and delay
+useEffect(() => {
+  const tg = window.Telegram?.WebApp;
+
+  if (tg) {
+    tg.ready(); // ✅ Ensure Telegram initializes
+    setTimeout(() => {
+      const user = tg.initDataUnsafe?.user;
+      console.log("initDataUnsafe:", tg.initDataUnsafe); // Debug info
+      if (user) {
+        setTelegramUser(user);
+        fetchUser(user);
+      } else {
+        setError("Telegram user not found. Please open via Telegram.");
+        setLoading(false);
+      }
+    }, 100); // slight delay to allow init
+  } else {
+    setError("Telegram WebApp not available");
+    setLoading(false);
+  }
+}, []);
+
 
   // Fetch user data from server
   const fetchUser = async (user) => {
