@@ -10,25 +10,24 @@ const App = () => {
   const [claiming, setClaiming] = useState(false);
   const [error, setError] = useState("");
 
-  // Fetch Telegram user data with tg.ready() and delay
-useEffect(() => {
+  useEffect(() => {
   const tg = window.Telegram?.WebApp;
+if (!tg || !tg.initDataUnsafe?.user) {
+  setError("❌ You must open this from inside Telegram.");
+  setLoading(false);
+  return;
+}
 
-  if (tg) {
-    tg.ready(); // ✅ Ensure Telegram initializes
-    setTimeout(() => {
-      const user = tg.initDataUnsafe?.user;
-      console.log("initDataUnsafe:", tg.initDataUnsafe); // Debug info
-      if (user) {
-        setTelegramUser(user);
-        fetchUser(user);
-      } else {
-        setError("Telegram user not found. Please open via Telegram.");
-        setLoading(false);
-      }
-    }, 100); // slight delay to allow init
+
+  tg.ready();
+
+  const user = tg.initDataUnsafe?.user;
+
+  if (user) {
+    setTelegramUser(user);
+    fetchUser(user);
   } else {
-    setError("Telegram WebApp not available");
+    setError("❌ Telegram user not found. Open FunkyCoin using the Start button inside Telegram.");
     setLoading(false);
   }
 }, []);
